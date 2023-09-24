@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract USDC is ERC20 {
     constructor() ERC20("USDC", "USDC") {
         // _setupDecimals(6);
-        _mint(msg.sender, 1000000 * 10 ** decimals());
+        _mint(msg.sender, 10000000000000 * 10 ** decimals());
     }
 
     function decimals() public pure override returns (uint8) {

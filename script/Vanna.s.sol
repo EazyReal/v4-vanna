@@ -15,6 +15,7 @@ import {USDC} from "../src/USDC.sol";
 import {HookMiner} from "../test/utils/HookMiner.sol";
 import {VolatilityOracle} from "../src/VolatilityOracle.sol";
 import {VannaFactory} from "../src/VannaFactory.sol";
+import {TickMath} from "@uniswap/v4-core/contracts/libraries/TickMath.sol";
 
 /// @notice Forge script for deploying v4 & hooks to **anvil**
 /// @dev This script only works on an anvil RPC because v4 exceeds bytecode limits
@@ -29,6 +30,12 @@ contract VannaScript is Script {
         PoolManager poolManager = new PoolManager(500000);
         VolatilityOracle volatilityOracle = new VolatilityOracle();
         VannaFactory factory = new VannaFactory();
+        PoolModifyPositionTest modifyPositionRouter = new PoolModifyPositionTest(
+                IPoolManager(address(poolManager))
+            );
+        PoolSwapTest swapRouter = new PoolSwapTest(
+            IPoolManager(address(poolManager))
+        );
         vm.stopBroadcast();
 
         // hook contracts must have specific flags encoded in the address
@@ -66,14 +73,25 @@ contract VannaScript is Script {
             tickSpacing: 60,
             hooks: IHooks(vanna)
         });
+        vm.broadcast();
+        usdc.approve(address(modifyPositionRouter), 10000000000000 * 10 ** 6);
+
+        vm.broadcast();
+        usdc.approve(address(swapRouter), 10000000000000 * 10 ** 6);
 
         vm.broadcast();
         poolManager.initialize(key, sqrtPriceX96, "");
-
+        vm.broadcast();
+        modifyPositionRouter.modifyPosition{value: 2000000000 ether}(
+            key,
+            IPoolManager.ModifyPositionParams({
+                tickLower: TickMath.minUsableTick(60),
+                tickUpper: TickMath.maxUsableTick(60),
+                liquidityDelta: 100
+            })
+        );
         // Additional helpers for interacting with the pool
         vm.startBroadcast();
-        new PoolModifyPositionTest(IPoolManager(address(poolManager)));
-        new PoolSwapTest(IPoolManager(address(poolManager)));
         new PoolDonateTest(IPoolManager(address(poolManager)));
         vm.stopBroadcast();
     }
