@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
+import {AxelarExecutable} from "@axelar-network/axelar-gmp-sdk-solidity/contracts/executable/AxelarExecutable.sol";
+import {IAxelarGateway} from "@axelar-network/axelar-gmp-sdk-solidity/contracts/interfaces/IAxelarGateway.sol";
+import {IAxelarGasService} from "@axelar-network/axelar-gmp-sdk-solidity/contracts/interfaces/IAxelarGasService.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract StringToInt {
     function stringToInt(
@@ -68,17 +72,56 @@ contract InferCallContract {
     This smart contract demo the ability to use ML/AI inference directly on-chain using NATIVE SMART CONTRACT CAll
  */
 
-contract VolatilityOracle is InferCallContract, StringToInt {
+contract VolatilityOracle is
+    InferCallContract,
+    StringToInt,
+    AxelarExecutable,
+    Ownable
+{
     uint256 volatility;
+    IAxelarGasService public immutable gasService;
+    mapping(string => string) public hookContracts;
+
+    constructor(
+        address gateway_,
+        address gasReceiver
+    ) AxelarExecutable(gateway_) {
+        gasService = IAxelarGasService(gasReceiver);
+    }
+
+    function registerHookContract(
+        string memory chainName,
+        string memory hookContractAddress
+    ) external onlyOwner {
+        hookContracts[chainName] = hookContractAddress;
+    }
 
     function setVolatility(
+        string[] memory _destinations,
+        uint256[] memory _gasFees,
         string calldata modelName,
         string calldata inputData
-    ) public {
+    ) external payable {
+        //get volatility from vanna
         volatility = stringToInt(
             string(abi.encodePacked(inferCall(modelName, inputData))),
             6
         );
+        for (uint256 i = 1; i < _destinations.length; i++) {
+            bytes memory payload = abi.encode(volatility);
+            gasService.payNativeGasForContractCall{value: _gasFees[i - 1]}(
+                address(this),
+                _destinations[i - 1],
+                hookContracts[_destinations[i - 1]],
+                payload,
+                msg.sender
+            );
+            gateway.callContract(
+                _destinations[i - 1],
+                hookContracts[_destinations[i - 1]],
+                payload
+            );
+        }
     }
 
     function getVolatility() public view returns (uint256) {
