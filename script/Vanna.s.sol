@@ -13,6 +13,8 @@ import {PoolDonateTest} from "@uniswap/v4-core/contracts/test/PoolDonateTest.sol
 import {Vanna} from "../src/Vanna.sol";
 import {USDC} from "../src/USDC.sol";
 import {HookMiner} from "../test/utils/HookMiner.sol";
+import {VolatilityOracle} from "../src/VolatilityOracle.sol";
+import {VannaFactory} from "../src/VannaFactory.sol";
 
 /// @notice Forge script for deploying v4 & hooks to **anvil**
 /// @dev This script only works on an anvil RPC because v4 exceeds bytecode limits
@@ -25,13 +27,15 @@ contract VannaScript is Script {
     function run() public {
         vm.broadcast();
         PoolManager poolManager = new PoolManager(500000);
+        VolatilityOracle volatilityOracle = new VolatilityOracle();
+        VannaFactory factory = new VannaFactory();
 
         // hook contracts must have specific flags encoded in the address
         uint160 flags = uint160(Hooks.BEFORE_INITIALIZE_FLAG);
 
         // Mine a salt that will produce a hook address with the correct flags
         (address hookAddress, bytes32 salt) = HookMiner.find(
-            CREATE2_DEPLOYER,
+            address(factory),
             flags,
             1000,
             type(Vanna).creationCode,
@@ -40,7 +44,9 @@ contract VannaScript is Script {
 
         // Deploy the hook using CREATE2
         vm.broadcast();
-        Vanna vanna = new Vanna{salt: salt}(IPoolManager(address(poolManager)));
+        Vanna vanna = Vanna(
+            factory.deploy(volatilityOracle, poolManager, salt)
+        );
         require(
             address(vanna) == hookAddress,
             "VannaScript: hook address mismatch"

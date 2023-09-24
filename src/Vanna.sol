@@ -7,13 +7,22 @@ import {Hooks} from "@uniswap/v4-core/contracts/libraries/Hooks.sol";
 import {FeeLibrary} from "@uniswap/v4-core/contracts/libraries/FeeLibrary.sol";
 import {BaseHook} from "v4-periphery/BaseHook.sol";
 import {PoolKey} from "@uniswap/v4-core/contracts/types/PoolKey.sol";
+import {VolatilityOracle} from "../src/VolatilityOracle.sol";
 
 contract Vanna is BaseHook, IDynamicFeeManager {
     using FeeLibrary for uint24;
 
     error MustUseDynamicFee();
 
+    bool private initialized;
     uint32 deployTimestamp;
+    VolatilityOracle volatilityOracle;
+
+    function initialize(VolatilityOracle _volatilityOracle) public {
+        require(!initialized, "Already initialized");
+        initialized = true;
+        volatilityOracle = _volatilityOracle;
+    }
 
     function getFee(
         address,
@@ -21,9 +30,9 @@ contract Vanna is BaseHook, IDynamicFeeManager {
         IPoolManager.SwapParams calldata,
         bytes calldata
     ) external view returns (uint24) {
-        uint24 startingFee = 3000;
-        uint32 lapsed = _blockTimestamp() - deployTimestamp;
-        return startingFee + (uint24(lapsed) * 100) / 60; // 100 bps a minute
+        require(initialized, "Not initialized");
+        uint24 fee = uint24(volatilityOracle.getVolatility());
+        return fee; // 1e6 is 100%
     }
 
     /// @dev For mocking
