@@ -3,12 +3,15 @@ pragma solidity ^0.8.19;
 
 import "forge-std/Script.sol";
 import {Hooks} from "@uniswap/v4-core/contracts/libraries/Hooks.sol";
+import {IHooks} from "@uniswap/v4-core/contracts/interfaces/IHooks.sol";
 import {PoolManager} from "@uniswap/v4-core/contracts/PoolManager.sol";
-import {IPoolManager} from "@uniswap/v4-core/contracts/interfaces/IPoolManager.sol";
+import {IPoolManager, PoolKey, Currency} from "@uniswap/v4-core/contracts/interfaces/IPoolManager.sol";
+import {FeeLibrary} from "@uniswap/v4-core/contracts/libraries/FeeLibrary.sol";
 import {PoolModifyPositionTest} from "@uniswap/v4-core/contracts/test/PoolModifyPositionTest.sol";
 import {PoolSwapTest} from "@uniswap/v4-core/contracts/test/PoolSwapTest.sol";
 import {PoolDonateTest} from "@uniswap/v4-core/contracts/test/PoolDonateTest.sol";
 import {Vanna} from "../src/Vanna.sol";
+import {USDC} from "../src/USDC.sol";
 import {HookMiner} from "../test/utils/HookMiner.sol";
 
 /// @notice Forge script for deploying v4 & hooks to **anvil**
@@ -21,7 +24,7 @@ contract VannaScript is Script {
 
     function run() public {
         vm.broadcast();
-        PoolManager manager = new PoolManager(500000);
+        PoolManager poolManager = new PoolManager(500000);
 
         // hook contracts must have specific flags encoded in the address
         uint160 flags = uint160(Hooks.BEFORE_INITIALIZE_FLAG);
@@ -32,22 +35,36 @@ contract VannaScript is Script {
             flags,
             1000,
             type(Vanna).creationCode,
-            abi.encode(address(manager))
+            abi.encode(address(poolManager))
         );
 
         // Deploy the hook using CREATE2
         vm.broadcast();
-        Vanna vanna = new Vanna{salt: salt}(IPoolManager(address(manager)));
+        Vanna vanna = new Vanna{salt: salt}(IPoolManager(address(poolManager)));
         require(
             address(vanna) == hookAddress,
             "VannaScript: hook address mismatch"
         );
 
+        // deploy coins
+        USDC usdc = new USDC();
+        // uint24 dynamicFee = FeeLibrary.DYNAMIC_FEE_FLAG;
+        uint160 sqrtPriceX96 = 1985562219192948852868261831073634;
+        PoolKey memory key = PoolKey({
+            currency0: Currency.wrap(address(0)),
+            currency1: Currency.wrap(address(usdc)),
+            fee: FeeLibrary.DYNAMIC_FEE_FLAG,
+            tickSpacing: 1,
+            hooks: IHooks(vanna)
+        });
+
+        poolManager.initialize(key, sqrtPriceX96, "");
+
         // Additional helpers for interacting with the pool
         vm.startBroadcast();
-        new PoolModifyPositionTest(IPoolManager(address(manager)));
-        new PoolSwapTest(IPoolManager(address(manager)));
-        new PoolDonateTest(IPoolManager(address(manager)));
+        new PoolModifyPositionTest(IPoolManager(address(poolManager)));
+        new PoolSwapTest(IPoolManager(address(poolManager)));
+        new PoolDonateTest(IPoolManager(address(poolManager)));
         vm.stopBroadcast();
     }
 }
