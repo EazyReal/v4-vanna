@@ -51,6 +51,7 @@ contract VannaScript is Script {
             address(vanna) == hookAddress,
             "VannaScript: hook address mismatch"
         );
+        console.logAddress(address(vanna));
 
         // deploy coins
         USDC usdc = new USDC();

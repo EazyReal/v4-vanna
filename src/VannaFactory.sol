@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: MIT
-
 import {IPoolManager} from "@uniswap/v4-core/contracts/interfaces/IPoolManager.sol";
 import {IDynamicFeeManager} from "@uniswap/v4-core/contracts/interfaces/IDynamicFeeManager.sol";
 import {Hooks} from "@uniswap/v4-core/contracts/libraries/Hooks.sol";
