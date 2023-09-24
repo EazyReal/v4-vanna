@@ -25,10 +25,11 @@ contract VannaScript is Script {
     function setUp() public {}
 
     function run() public {
-        vm.broadcast();
+        vm.startBroadcast();
         PoolManager poolManager = new PoolManager(500000);
         VolatilityOracle volatilityOracle = new VolatilityOracle();
         VannaFactory factory = new VannaFactory();
+        vm.stopBroadcast();
 
         // hook contracts must have specific flags encoded in the address
         uint160 flags = uint160(Hooks.BEFORE_INITIALIZE_FLAG);
@@ -54,6 +55,7 @@ contract VannaScript is Script {
         console.logAddress(address(vanna));
 
         // deploy coins
+        vm.broadcast();
         USDC usdc = new USDC();
         // uint24 dynamicFee = FeeLibrary.DYNAMIC_FEE_FLAG;
         uint160 sqrtPriceX96 = 1985562219192948852868261831073634;
@@ -61,10 +63,11 @@ contract VannaScript is Script {
             currency0: Currency.wrap(address(0)),
             currency1: Currency.wrap(address(usdc)),
             fee: FeeLibrary.DYNAMIC_FEE_FLAG,
-            tickSpacing: 1,
+            tickSpacing: 60,
             hooks: IHooks(vanna)
         });
 
+        vm.broadcast();
         poolManager.initialize(key, sqrtPriceX96, "");
 
         // Additional helpers for interacting with the pool

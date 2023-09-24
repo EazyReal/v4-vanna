@@ -71,6 +71,10 @@ contract InferCallContract {
 contract VolatilityOracle is InferCallContract, StringToInt {
     uint256 volatility;
 
+    constructor() {
+        volatility = 50000;
+    }
+
     function setVolatility(
         string calldata modelName,
         string calldata inputData
